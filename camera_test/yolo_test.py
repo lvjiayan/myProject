@@ -123,7 +123,7 @@ def random_color(id):
     return hsv2bgr(h_plane, s_plane, 1)
 
 # 新版本加载模型
-model = YOLO("yolo11s.pt")
+model = YOLO("yolov8s.pt")
 
 # 包含前处理和后处理的加载模型
 # model  = AutoBackend(weights="yolov8s.pt")
@@ -133,11 +133,11 @@ model = YOLO("yolo11s.pt")
 ### model = torch.hub.load('./yolov5', 'custom', path='./weights/pose.pt',source='local')
 
 # 从摄像头读取视频
-# cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0)
 
 # 接收从主机摄像头抓取并通过网络发送过来的视频信息
-address = "udp://127.0.0.1:5000"
-cap = cv2.VideoCapture(address)
+# address = "udp://127.0.0.1:5000"
+# cap = cv2.VideoCapture(address)
 
 while cap.isOpened():
     ret, frame = cap.read()
