@@ -3,8 +3,8 @@ import numpy as np
 import torch
 
 from ultralytics import YOLO
-from ultralytics.data.augment import LetterBox
-from ultralytics.nn.autobackend import AutoBackend
+# from ultralytics.data.augment import LetterBox
+# from ultralytics.nn.autobackend import AutoBackend
 
 def preprocess_letterbox(image):
     letterbox = LetterBox(new_shape=640, stride=32, auto=True)
@@ -121,9 +121,19 @@ def random_color(id):
     h_plane = (((id << 2) ^ 0x937151) % 100) / 100.0
     s_plane = (((id << 3) ^ 0x315793) % 100) / 100.0
     return hsv2bgr(h_plane, s_plane, 1)
+ 
+# 检查CUDA是否可用
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("Running on the GPU")
+else:
+    device = torch.device("cpu")
+    print("Running on the CPU")
 
 # 新版本加载模型
 model = YOLO("yolov8s.pt")
+# 将模型和数据移至GPU
+model = model.to(device)
 
 # 包含前处理和后处理的加载模型
 # model  = AutoBackend(weights="yolov8s.pt")
@@ -163,11 +173,11 @@ while cap.isOpened():
         confidence = obj[4]
         label = int(obj[5])
         color = random_color(label)
-        cv2.rectangle(frame, (left, top), (right, bottom), color=color ,thickness=2, lineType=cv2.LINE_AA)
+        cv2.rectangle(frame, (left, top), (right, bottom), color=color ,thickness=1, lineType=cv2.LINE_AA)
         caption = f"{names[label]} {confidence:.2f}"
         w, h = cv2.getTextSize(caption, 0, 1, 2)[0]
         cv2.rectangle(frame, (left - 3, top - 33), (left + w + 10, top), color, -1)
-        cv2.putText(frame, caption, (left, top - 5), 0, 1, (0, 0, 0), 2, 16)
+        cv2.putText(frame, caption, (left, top - 5), 0, 1, (0, 0, 0), 1, 16)
 
     cv2.imshow('YOLOv8', frame)
 

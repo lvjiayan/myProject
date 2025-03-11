@@ -62,7 +62,7 @@ if __name__ == "__main__":
                 frame = cv2.flip(frame, 1)
                 cv2.imshow(WINDOW_NAME_COLOR, frame)
  
-            key = cv2.waitKey(1)
+            key = cv2.waitKey(33)
             if key & 0xFF == ord('q'):
                 break
         depth_stream.stop()
