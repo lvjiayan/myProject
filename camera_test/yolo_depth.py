@@ -6,7 +6,7 @@ import torch
 
 from ultralytics import YOLO
 import threading 
- 
+
 DEVICE_INFO = {}
 WINDOW_NAME_DEPTH = 'Depth Image'
 WINDOW_NAME_COLOR = 'Color Image'
@@ -66,52 +66,11 @@ else:
     device = torch.device("cpu")
     print("Running on the CPU")
 
+def depth_compute():
 
-def yolo_infer():
-    global cap
-
-    while(True):
-        ret, color_frame = cap.read()
-        if not ret:
-            break
-
-        color_frame = cv2.flip(color_frame, 1)
-
-        # 使用YOLOv5进行检测
-        # print("----> 111")
-        # results = model(color_frame)[0]
-        # print("----> 222")
-        # names   = results.names
-        # boxes   = results.boxes.data.tolist()
-
-        # for obj in boxes:
-        #     left, top, right, bottom = int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3])
-        #     center_x = (left + right) / 2
-        #     center_y = (right + bottom) / 2
-        #     # center_distance = dpt[center_y, center_x] / 10.0   ##单位是厘米
-        #     confidence = obj[4]
-        #     label = int(obj[5])
-        #     color = random_color(label)
-        #     cv2.rectangle(color_frame, (left, top), (right, bottom), color=color ,thickness=2, lineType=cv2.LINE_AA)
-        #     caption = f"{names[label]} {confidence:.2f}"
-        #     w, h = cv2.getTextSize(caption, 0, 1, 2)[0]
-        #     cv2.rectangle(color_frame, (left - 3, top - 33), (left + w + 10, top), color, -1)
-        #     cv2.putText(color_frame, caption, (left, top - 5), 0, 1, (0, 0, 0), 2, 16)
-
-        # cv2.imshow(WINDOW_NAME_COLOR, color_frame)
-
-        # if cv2.waitKey(20) & 0xFF == ord('q'):
-        #     break
-
-        # print("yolo_infer is called")
-        # time.sleep(0.1)
-    
-
-def depth_infer():
-
-    global depth_stream
-    cv2.namedWindow(WINDOW_NAME_DEPTH)
-    cv2.setMouseCallback(WINDOW_NAME_DEPTH, mousecallback)
+    global depth_stream, dpt
+    # cv2.namedWindow(WINDOW_NAME_DEPTH)
+    # cv2.setMouseCallback(WINDOW_NAME_DEPTH, mousecallback)
 
     while True:
         depth_frame = depth_stream.read_frame()
@@ -121,25 +80,125 @@ def depth_infer():
 
         dpt2 *= 255
         dpt = dpt1 + dpt2
-        dim_gray = cv2.convertScaleAbs(dpt, alpha=ALPHA_VALUE)
-        # 对深度图像进行渲染
-        depth_colormap = cv2.applyColorMap(dim_gray, COLOR_MAP_TYPE)
+        # dim_gray = cv2.convertScaleAbs(dpt, alpha=ALPHA_VALUE)
+        # # 对深度图像进行渲染
+        # depth_colormap = cv2.applyColorMap(dim_gray, COLOR_MAP_TYPE)
 
-        if click_x >= 0 and click_y >= 0 and (time.time() - last_click_time) < 5:
-            depth_colormap = cv2.putText(depth_colormap, distance_text, (click_x, click_y), FONT, FONT_SCALE,
-                                            FONT_COLOR, FONT_THICKNESS, cv2.LINE_AA)
+        # if click_x >= 0 and click_y >= 0 and (time.time() - last_click_time) < 5:
+        #     depth_colormap = cv2.putText(depth_colormap, distance_text, (click_x, click_y), FONT, FONT_SCALE,
+        #                                     FONT_COLOR, FONT_THICKNESS, cv2.LINE_AA)
 
-        cv2.imshow(WINDOW_NAME_DEPTH, depth_colormap)
-
-        if cv2.waitKey(20) & 0xFF == ord('q'):
+        # cv2.imshow(WINDOW_NAME_DEPTH, depth_colormap)
+        # if cv2.waitKey(20) & 0xFF == ord('q'):
+        #     break
+        del depth_frame
+        time.sleep(0.01)
+        if stop_thread:
             break
+        
+def yolo_infer():
+    global cap, dep, stop_thread
+
+    while(cap.isOpened()):
+        ret, color_frame = cap.read()
+        if not ret:
+            break
+
+        color_frame = cv2.flip(color_frame, 1)
+
+        # 使用YOLOv5进行检测
+        with torch.no_grad():
+            results = model(color_frame)[0]
+
+            names   = results.names
+            boxes   = results.boxes.data.tolist()
+
+            for obj in boxes:
+                left, top, right, bottom = int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3])
+                center_x = int((left + right) / 2)
+                center_y = int((top + bottom) / 2)
+                center_distance = dpt[center_y, center_x] / 10.0   ##单位是厘米
+                confidence = obj[4]
+                label = int(obj[5])
+                # color = random_color(label)
+                color = (0, 100, 150)
+                cv2.rectangle(color_frame, (left, top), (right, bottom), color=color ,thickness=2, lineType=cv2.LINE_AA)
+                caption = f"{names[label]} {confidence:.2f} {center_distance:.1f}"
+                w, h = cv2.getTextSize(caption, 0, 1, 2)[0]
+                cv2.rectangle(color_frame, (left - 3, top - 25), (left + w + 10, top), color, -1)
+                cv2.putText(color_frame, caption, (left, top - 5), 0, 0.7, (0, 0, 0), 2, 16)
+
+            cv2.imshow(WINDOW_NAME_COLOR, color_frame)
+            del results
+
+            if cv2.waitKey(10) & 0xFF == ord('q'):
+                break
+
+            # print("yolo_infer is called")
+            # time.sleep(0.01)
+            # if stop_thread:
+            #     break
+
+def combine_depth_yolo():
+
+    global depth_stream, cap, stop_thread
+    # cv2.namedWindow(WINDOW_NAME_DEPTH)
+    # cv2.setMouseCallback(WINDOW_NAME_DEPTH, mousecallback)
+
+    while cap.isOpened():
+        depth_frame = depth_stream.read_frame()
+        dframe_data = np.array(depth_frame.get_buffer_as_triplet()).reshape([480, 640, 2])
+        dpt1 = np.asarray(dframe_data[:, :, 0], dtype='float32')
+        dpt2 = np.asarray(dframe_data[:, :, 1], dtype='float32')
+
+        dpt2 *= 255
+        dpt = dpt1 + dpt2
+        # dim_gray = cv2.convertScaleAbs(dpt, alpha=ALPHA_VALUE)
+        # # 对深度图像进行渲染
+        # depth_colormap = cv2.applyColorMap(dim_gray, COLOR_MAP_TYPE)
+
+        # if click_x >= 0 and click_y >= 0 and (time.time() - last_click_time) < 5:
+        #     depth_colormap = cv2.putText(depth_colormap, distance_text, (click_x, click_y), FONT, FONT_SCALE,
+        #                                     FONT_COLOR, FONT_THICKNESS, cv2.LINE_AA)
+
+        # cv2.imshow(WINDOW_NAME_DEPTH, depth_colormap)
+
+        ret, color_frame = cap.read()
+        if not ret:
+            break
+
+        color_frame = cv2.flip(color_frame, 1)
+
+        # 使用YOLOv5进行检测
+        results = model(color_frame)[0]
+        names   = results.names
+        boxes   = results.boxes.data.tolist()
+
+        for obj in boxes:
+            left, top, right, bottom = int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3])
+            center_x = int((left + right) / 2)
+            center_y = int((top + bottom) / 2)
+            center_distance = dpt[center_y, center_x] / 10.0   ##单位是厘米
+            confidence = obj[4]
+            label = int(obj[5])
+            # color = random_color(label)
+            color = (0, 100, 150)
+            cv2.rectangle(color_frame, (left, top), (right, bottom), color=color ,thickness=2, lineType=cv2.LINE_AA)
+            caption = f"{names[label]} {confidence:.2f} {center_distance:.1f}"
+            w, h = cv2.getTextSize(caption, 0, 1, 2)[0]
+            cv2.rectangle(color_frame, (left - 3, top - 25), (left + w + 10, top), color, -1)
+            cv2.putText(color_frame, caption, (left, top - 5), 0, 0.7, (0, 0, 0), 2, 16)
+
+        cv2.imshow(WINDOW_NAME_COLOR, color_frame)
 
         time.sleep(0.1)
 
+dpt = 0
+
 
 # 新版本加载模型
-# model = YOLO("yolov8s.pt")
-# model.eval()
+model = YOLO("yolov8s.pt")
+model.eval()
 # 将模型和数据移至GPU
 # model = model.to(device)
 
@@ -149,28 +208,27 @@ dev = openni2.Device.open_any()
 print(dev.get_device_info())
 depth_stream = dev.create_depth_stream()
 depth_stream.start()
-dev.set_image_registration_mode(True)
+dev.set_image_registration_mode(True) 
 
 cap = cv2.VideoCapture(0)
 
-if __name__ == "__main__":
+# combine_depth_yolo()
+stop_thread = False
 
-    # yolo_infer()
-    # depth_infer()
+t1 = threading.Thread(target = depth_compute)
+t2 = threading.Thread(target = yolo_infer)
 
-    t1 = threading.Thread(target = yolo_infer)
-    t2 = threading.Thread(target = depth_infer)
+t1.start()
+t2.start()
 
-    t1.start()
-    t2.start()
+t2.join()
+stop_thread = True
+t1.join()
 
-    t1.join()
-    t2.join()
+print("所有线程执行完毕")
 
-    print("所有线程执行完毕")
-
-    cap.release()
-    depth_stream.stop()
-    dev.close()
-    cv2.destroyAllWindows()
-    openni2.unload()
+cap.release()
+depth_stream.stop()
+dev.close()
+openni2.unload()
+cv2.destroyAllWindows()

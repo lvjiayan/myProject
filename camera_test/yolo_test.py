@@ -133,7 +133,7 @@ else:
 # 新版本加载模型
 model = YOLO("yolov8s.pt")
 # 将模型和数据移至GPU
-model = model.to(device)
+# model = model.to(device)
 
 # 包含前处理和后处理的加载模型
 # model  = AutoBackend(weights="yolov8s.pt")

@@ -2,6 +2,7 @@ from openni import openni2
 import numpy as np
 import cv2
 import time
+import torch
  
 DEVICE_INFO = {}
 WINDOW_NAME_DEPTH = 'Depth Image'
@@ -25,7 +26,13 @@ def mousecallback(event, x, y, flags, param):
         distance = dpt[y, x] / 10.0  # 若深度值是以毫米为单位，转换为厘米
         distance_text = f"Dis: {distance:.2f} cm"
         last_click_time = time.time()
- 
+
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("Running on the GPU")
+else:
+    device = torch.device("cpu")
+    print("Running on the CPU")
  
 if __name__ == "__main__":
     try:
