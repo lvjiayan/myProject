@@ -131,7 +131,7 @@ def yolo_infer():
             cv2.imshow(WINDOW_NAME_COLOR, color_frame)
             del results
 
-            if cv2.waitKey(10) & 0xFF == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
             # print("yolo_infer is called")
@@ -141,7 +141,7 @@ def yolo_infer():
 
 def combine_depth_yolo():
 
-    global depth_stream, cap, stop_thread
+    global depth_stream, cap, stop_thread, dep
     # cv2.namedWindow(WINDOW_NAME_DEPTH)
     # cv2.setMouseCallback(WINDOW_NAME_DEPTH, mousecallback)
 
@@ -190,11 +190,10 @@ def combine_depth_yolo():
             cv2.putText(color_frame, caption, (left, top - 5), 0, 0.7, (0, 0, 0), 2, 16)
 
         cv2.imshow(WINDOW_NAME_COLOR, color_frame)
-
-        time.sleep(0.1)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 dpt = 0
-
 
 # 新版本加载模型
 model = YOLO("yolov8s.pt")
@@ -212,18 +211,18 @@ dev.set_image_registration_mode(True)
 
 cap = cv2.VideoCapture(0)
 
-# combine_depth_yolo()
-stop_thread = False
+combine_depth_yolo()
+# stop_thread = False
 
-t1 = threading.Thread(target = depth_compute)
-t2 = threading.Thread(target = yolo_infer)
+# t1 = threading.Thread(target = depth_compute)
+# t2 = threading.Thread(target = yolo_infer)
 
-t1.start()
-t2.start()
+# t1.start()
+# t2.start()
 
-t2.join()
-stop_thread = True
-t1.join()
+# t2.join()
+# stop_thread = True
+# t1.join()
 
 print("所有线程执行完毕")
 
